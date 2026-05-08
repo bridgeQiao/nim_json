@@ -1,14 +1,15 @@
-import std/[parseutils, strutils, syncio]
+import std/[parseutils, strutils]
 import ./value
 
-proc fail(msg: string) {.noreturn.} =
-  quit "json parse error: " & msg
+proc fail(msg: string) {.raises, noreturn.} =
+  discard msg
+  raise SyntaxError
 
 proc skipWs(s: string; i: var int) =
   while i < s.len and s[i] in Whitespace:
     inc i
 
-proc expect(s: string; i: var int; token, name: string) =
+proc expect(s: string; i: var int; token, name: string) {.raises.} =
   if s.continuesWith(token, i):
     inc i, token.len
   else:
@@ -36,7 +37,7 @@ proc addUtf8Rune(dest: var string; code: int) =
     dest.add char(0x80 or ((code shr 6) and 0x3F))
     dest.add char(0x80 or (code and 0x3F))
 
-proc parseUnicodeEscape(s: string; i: var int; dest: var string) =
+proc parseUnicodeEscape(s: string; i: var int; dest: var string) {.raises.} =
   if i + 4 > s.len:
     fail "short unicode escape"
   var code = 0
@@ -50,7 +51,7 @@ proc parseUnicodeEscape(s: string; i: var int; dest: var string) =
     inc n
   addUtf8Rune dest, code
 
-proc parseStringLit(s: string; i: var int): string =
+proc parseStringLit(s: string; i: var int): string {.raises.} =
   if i >= s.len or s[i] != '"':
     fail "expected string"
   inc i
@@ -95,62 +96,58 @@ proc parseStringLit(s: string; i: var int): string =
       inc i
   fail "unterminated string"
 
-proc parseJsonValue(s: string; i: var int): Json
+proc parseJsonValue(s: string; i: var int): Json {.raises.}
 
-proc parseArray(s: string; i: var int): Json =
+proc parseArray(s: string; i: var int): Json {.raises.} =
   inc i
   skipWs s, i
   var xs = default(seq[Json])
   if i < s.len and s[i] == ']':
     inc i
-    let j: Json = JArray(elems: xs)
-    return j
-  while true:
-    skipWs s, i
-    xs.add parseJsonValue(s, i)
-    skipWs s, i
-    if i >= s.len:
-      fail "unterminated array"
-    if s[i] == ']':
+  else:
+    while true:
+      skipWs s, i
+      xs.add parseJsonValue(s, i)
+      skipWs s, i
+      if i >= s.len:
+        fail "unterminated array"
+      if s[i] == ']':
+        inc i
+        break
+      if s[i] != ',':
+        fail "expected comma or closing bracket"
       inc i
-      break
-    if s[i] != ',':
-      fail "expected comma or closing bracket"
-    inc i
-  let j: Json = JArray(elems: xs)
-  result = j
+  result = newArray(xs)
 
-proc parseObject(s: string; i: var int): Json =
+proc parseObject(s: string; i: var int): Json {.raises.} =
   inc i
   skipWs s, i
   var ps = default(seq[tuple[key: string, val: Json]])
   if i < s.len and s[i] == '}':
     inc i
-    let j: Json = JObject(pairs: ps)
-    return j
-  while true:
-    skipWs s, i
-    let k = parseStringLit(s, i)
-    skipWs s, i
-    if i >= s.len or s[i] != ':':
-      fail "expected colon after object key"
-    inc i
-    skipWs s, i
-    let v = parseJsonValue(s, i)
-    ps.add((key: k, val: v))
-    skipWs s, i
-    if i >= s.len:
-      fail "unterminated object"
-    if s[i] == '}':
+  else:
+    while true:
+      skipWs s, i
+      let k = parseStringLit(s, i)
+      skipWs s, i
+      if i >= s.len or s[i] != ':':
+        fail "expected colon after object key"
       inc i
-      break
-    if s[i] != ',':
-      fail "expected comma or closing brace"
-    inc i
-  let j: Json = JObject(pairs: ps)
-  result = j
+      skipWs s, i
+      let v = parseJsonValue(s, i)
+      ps.add((key: k, val: v))
+      skipWs s, i
+      if i >= s.len:
+        fail "unterminated object"
+      if s[i] == '}':
+        inc i
+        break
+      if s[i] != ',':
+        fail "expected comma or closing brace"
+      inc i
+  result = newObject(ps)
 
-proc parseNumber(s: string; i: var int): Json =
+proc parseNumber(s: string; i: var int): Json {.raises.} =
   let start = i
   var isFloat = false
   var p = i
@@ -192,34 +189,28 @@ proc parseNumber(s: string; i: var int): Json =
     fail "bad number"
   i = p
   if isFloat:
-    let j: Json = JFloat(f: float64(f))
-    result = j
+    result = newFloat(float64(f))
   else:
     var x = default(BiggestInt)
     discard parseBiggestInt(s.toOpenArray(start, i - 1), x)
-    let j: Json = JInt(i: int64(x))
-    result = j
+    result = newInt(int64(x))
 
-proc parseJsonValue(s: string; i: var int): Json =
+proc parseJsonValue(s: string; i: var int): Json {.raises.} =
   skipWs s, i
   if i >= s.len:
     fail "unexpected end of input"
   case s[i]
   of 'n':
     expect s, i, "null", "null"
-    let j: Json = JNull(nilPad: false)
-    result = j
+    result = newNull()
   of 't':
     expect s, i, "true", "true"
-    let j: Json = JBool(b: true)
-    result = j
+    result = newBool(true)
   of 'f':
     expect s, i, "false", "false"
-    let j: Json = JBool(b: false)
-    result = j
+    result = newBool(false)
   of '"':
-    let j: Json = JString(s: parseStringLit(s, i))
-    result = j
+    result = newString(parseStringLit(s, i))
   of '[':
     result = parseArray(s, i)
   of '{':
@@ -229,14 +220,14 @@ proc parseJsonValue(s: string; i: var int): Json =
   else:
     fail "unexpected character"
 
-proc parseJson*(s: string): Json =
+proc parseJson*(s: string): Json {.raises.} =
   var i = 0
   result = parseJsonValue(s, i)
   skipWs s, i
   if i != s.len:
     fail "trailing characters"
 
-proc parseJsonConcat*(s: string): seq[Json] =
+proc parseJsonConcat*(s: string): seq[Json] {.raises.} =
   var i = 0
   result = default(seq[Json])
   skipWs s, i

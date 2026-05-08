@@ -15,6 +15,16 @@ assert toInt64(fieldAt(j, "n")) == 42
 echo toJsonString(j)
 ```
 
+Parse errors raise `SyntaxError` and can be checked with Nimony's `ErrorCode`
+exception handling:
+
+```nim
+try:
+  discard parseJson("[1,]")
+except ErrorCode as e:
+  assert e == SyntaxError
+```
+
 The core parser and writer are normal runtime code. The derive layer is a Nimony
 template plugin that generates thin per-type wrappers around runtime helpers.
 

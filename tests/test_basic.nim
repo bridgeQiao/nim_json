@@ -1,7 +1,16 @@
 import std/[assertions, syncio]
 import nim_json
 
-proc main() =
+proc expectSyntaxError(input: string) =
+  var raised = false
+  try:
+    discard parseJson(input)
+  except ErrorCode as e:
+    assert e == SyntaxError
+    raised = true
+  assert raised
+
+proc main() {.raises.} =
   let j = parseJson("{\"name\":\"nimony\",\"ok\":true,\"n\":42,\"f\":1.5,\"xs\":[1,2,3],\"u\":\"A\\u0042\"}")
 
   assert hasField(j, "name")
@@ -34,6 +43,14 @@ proc main() =
   assert toBool(fieldAt(elemAt(concat[1], 0), "b"))
   assert toJsonConcatString(concat) == "[{\"a\":1}][{\"b\":true}]"
 
+  expectSyntaxError("{\"missing\":")
+  expectSyntaxError("[1,]")
+  expectSyntaxError("[{}][{}]")
+
   echo "test_basic: OK"
 
-main()
+try:
+  main()
+except ErrorCode as e:
+  discard e
+  assert false
