@@ -86,5 +86,12 @@ proc toJsonString*(j: Json): string =
   result = ""
   writeJson result, j
 
+proc toJsonConcatString*(values: seq[Json]): string =
+  result = ""
+  var i = 0
+  while i < values.len:
+    writeJson result, values[i]
+    inc i
+
 proc echoJson*(j: Json) =
   echo toJsonString(j)

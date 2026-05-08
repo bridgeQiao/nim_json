@@ -235,3 +235,11 @@ proc parseJson*(s: string): Json =
   skipWs s, i
   if i != s.len:
     fail "trailing characters"
+
+proc parseJsonConcat*(s: string): seq[Json] =
+  var i = 0
+  result = default(seq[Json])
+  skipWs s, i
+  while i < s.len:
+    result.add parseJsonValue(s, i)
+    skipWs s, i

@@ -26,6 +26,14 @@ proc main() =
   let arrJson: Json = JArray(elems: arr)
   assert toJsonString(arrJson) == "[\"a\\nb\",7]"
 
+  let concat = parseJsonConcat("[{\"a\":1}][{\"b\":true}]")
+  assert concat.len == 2
+  assert concat[0].len == 1
+  assert concat[1].len == 1
+  assert toInt(fieldAt(elemAt(concat[0], 0), "a")) == 1
+  assert toBool(fieldAt(elemAt(concat[1], 0), "b"))
+  assert toJsonConcatString(concat) == "[{\"a\":1}][{\"b\":true}]"
+
   echo "test_basic: OK"
 
 main()
