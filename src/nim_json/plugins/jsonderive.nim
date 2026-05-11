@@ -1,10 +1,7 @@
 import nimonyplugins
 
 proc tr(n: NifCursor): NifBuilder =
-  var typ = n
-  if typ.stmtKind == StmtsS:
-    inc typ
-
+  var typ = if n.stmtKind == StmtsS: firstChild(n) else: n
   if typ.kind notin {Ident, Symbol}:
     return errorTree("deriveJson expects a type name", n)
 
