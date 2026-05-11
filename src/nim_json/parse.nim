@@ -1,4 +1,4 @@
-import std/[parseutils, strutils]
+import std/[parseutils, strutils, tables]
 import ./value
 
 proc fail(msg: string) {.raises, noreturn.} =
@@ -122,7 +122,7 @@ proc parseArray(s: string; i: var int): Json {.raises.} =
 proc parseObject(s: string; i: var int): Json {.raises.} =
   inc i
   skipWs s, i
-  var ps = default(seq[tuple[key: string, val: Json]])
+  var ps = default(Table[string, nil Json])
   if i < s.len and s[i] == '}':
     inc i
   else:
@@ -135,7 +135,7 @@ proc parseObject(s: string; i: var int): Json {.raises.} =
       inc i
       skipWs s, i
       let v = parseJsonValue(s, i)
-      ps.add((key: k, val: v))
+      ps[k] = v
       skipWs s, i
       if i >= s.len:
         fail "unterminated object"

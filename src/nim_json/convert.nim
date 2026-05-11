@@ -1,4 +1,4 @@
-import std/syncio
+import std / [syncio, tables]
 import ./value
 
 proc expectKind(msg: string) {.noreturn.} =
@@ -21,7 +21,7 @@ proc toJson*(x: string): Json =
   result = j
 
 proc objectToJson*[O: object](x: O): Json =
-  var pairs = default(seq[tuple[key: string, val: Json]])
+  var pairs = initTable[string, nil Json]()
   for name, f in fieldPairs(x):
     pairs.add((key: name, val: toJson(f)))
   let j: Json = JObject(pairs: pairs)

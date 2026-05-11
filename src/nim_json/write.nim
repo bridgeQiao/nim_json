@@ -1,4 +1,4 @@
-import std/[formatfloat, syncio]
+import std/[formatfloat, syncio, tables]
 import ./value
 
 proc appendHex4(dest: var string; x: int) =
@@ -49,15 +49,19 @@ proc writeArray(dest: var string; elems: seq[Json]) =
     inc i
   dest.add ']'
 
-proc writeObject(dest: var string; pairs: seq[tuple[key: string, val: Json]]) =
+proc writeObject(dest: var string; pairs: Table[string, nil Json]) =
   dest.add '{'
   var i = 0
-  while i < pairs.len:
+  for pair in pairs.pairs():
+    if pair[1] == nil:
+      continue
     if i > 0:
       dest.add ','
-    appendQuoted dest, pairs[i].key
+    appendQuoted dest, pair[0]
     dest.add ':'
-    writeJson dest, pairs[i].val
+    let value = pair[1]
+    if value != nil:
+      writeJson dest, value
     inc i
   dest.add '}'
 

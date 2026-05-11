@@ -1,3 +1,5 @@
+import std / tables
+
 type
   Json* = ref object
     case
@@ -14,7 +16,7 @@ type
     of JArray:
       elems*: seq[Json]
     of JObject:
-      pairs*: seq[tuple[key: string, val: Json]]
+      pairs*: Table[string, nil Json]
 
 proc newNull*(): Json =
   let j: Json = JNull(nilPad: false)
@@ -40,7 +42,7 @@ proc newArray*(elems: sink seq[Json]): Json =
   let j: Json = JArray(elems: elems)
   result = j
 
-proc newObject*(pairs: sink seq[tuple[key: string, val: Json]]): Json =
+proc newObject*(pairs: sink Table[string, nil Json]): Json =
   let j: Json = JObject(pairs: pairs)
   result = j
 
@@ -64,23 +66,21 @@ proc fieldAt*(j: Json; key: string): Json =
   result = default(Json)
   case j
   of JObject(pairs):
-    var i = 0
-    while i < pairs.len:
-      if pairs[i].key == key:
-        result = pairs[i].val
-        return
-      inc i
+    try:
+      if pairs.contains(key):
+        let value = pairs[key]
+        if value != nil:
+          return value
+    except:
+      discard
   else:
     discard
 
 proc hasField*(j: Json; key: string): bool =
   case j
   of JObject(pairs):
-    var i = 0
-    while i < pairs.len:
-      if pairs[i].key == key:
-        return true
-      inc i
+    if pairs.contains(key):
+      return true
   else:
     discard
   result = false
