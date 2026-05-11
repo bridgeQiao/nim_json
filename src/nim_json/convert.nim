@@ -23,7 +23,7 @@ proc toJson*(x: string): Json =
 proc objectToJson*[O: object](x: O): Json =
   var pairs = initTable[string, nil Json]()
   for name, f in fieldPairs(x):
-    pairs.add((key: name, val: toJson(f)))
+    pairs[name] = toJson(f)
   let j: Json = JObject(pairs: pairs)
   result = j
 
